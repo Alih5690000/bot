@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 #include "main.hpp"
 
 int main() {
@@ -7,6 +8,12 @@ int main() {
     bot.addHandler("/start", [&](long long chat_id) {
         bot.sendMessage(chat_id, "Hello! Welcome to the bot.");
     });
-    bot.infinite_poll();
+    bot.addHandler("gimme image mf", [&](long long chat_id) {
+        bot.sendPhoto(chat_id, "asdasdasdasd.jfif", "jfif");
+    });
+    while(true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        bot.Update();
+    }
     return 0;
 }

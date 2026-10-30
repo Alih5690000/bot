@@ -53,7 +53,7 @@ struct InlineKeyboard{
 class Bot{
   public:
   using Chain=std::vector<std::function<bool(std::string)>>;
-  private:
+  public:
   httplib::SSLClient cli{"api.telegram.org"};
   std::string token;
   long long offset=0;
