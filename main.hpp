@@ -94,15 +94,6 @@ class Bot{
     tasks.push(func);
     tasks_cv.notify_one();
   }
-  void updateWorkers(){
-    std::function<void()> f;
-    std::unique_lock<std::mutex> lok(tasks_mtx);
-    if (tasks.empty())
-      return;
-    f=tasks.front();
-    tasks.pop();
-    f();
-  }
   void Update(){
     static bool wasUnupdated=false;
     Object obj=getUpdates(offset);
@@ -158,6 +149,21 @@ class Bot{
   Bot(const std::string& token, std::string CertPath){
     this->token=token;
     cli.set_ca_cert_path(CertPath.c_str());
+    for (int i=0;i<4;i++){
+      threads.push_back(std::thread([&](){
+        while(true){
+          std::function<void()> f;
+          std::unique_lock<std::mutex> lok(tasks_mtx);
+          if (tasks.empty()){
+            tasks_cv.wait(lok, [&] { return !tasks.empty(); });
+            continue;
+          }
+          f=tasks.front();
+          tasks.pop();
+          f();
+        }
+      }));
+    }
   }
   void sendMessage(long long chat_id,const std::string& text){
     std::cout<<"Sending message to "<<chat_id<<std::endl;
@@ -190,7 +196,7 @@ class Bot{
               "Telegram error: " + res->body
           );
   }
-  void _sendMessage(long long chat_id, const std::string& text, const InlineKeyboard& keyboard){
+  void sendMessage(long long chat_id, const std::string& text, const InlineKeyboard& keyboard){
     Object kb;
     kb["inline_keyboard"]=Val(Type::Array,Array());
     Array arr=kb["inline_keyboard"].get<Array>();
@@ -304,7 +310,6 @@ class Bot{
   void infinite_poll(){
     while (true){
       Update();
-      updateWorkers();
     }
   }
 };
