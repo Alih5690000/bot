@@ -42,7 +42,7 @@ struct Val{
   std::any data;
   Val()=default;
   template<typename T>
-  const T& get() const{
+  T get() const{
     return std::any_cast<T>(data);
   }
   template<typename T>
@@ -176,7 +176,7 @@ Val execline(std::string code){
     return res;
   }
   else{
-    res.data=std::stoll(code);
+    res.data=std::stoi(code);
     res.type=Type::Int;
     return res;
   }
@@ -221,7 +221,7 @@ std::string Unexecline(Val var){
     return std::to_string(num);
   }
   if (var.type==Type::Int){
-    long long num=std::any_cast<long long>(var.data);
+    int num=std::any_cast<int>(var.data);
     return std::to_string(num);
   }
   if (var.type==Type::Obj){
@@ -235,9 +235,6 @@ std::string Unexecline(Val var){
       res+=Unexecline(i);
       res+=",\n";
     }
-    res.pop_back();
-    res.pop_back();
-    res+="\n";
     res+="]";
     return res;
   }

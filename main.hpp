@@ -6,6 +6,10 @@
 #include <iomanip>
 #include <unordered_map>
 #include <functional>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
 #include "json.hpp"
 static std::string urlEncode(const std::string& str)
 {
@@ -54,6 +58,10 @@ class Bot{
   public:
   using Chain=std::vector<std::function<bool(std::string)>>;
   public:
+  std::queue<std::function<void()>> tasks;
+  std::condition_variable tasks_cv;
+  std::mutex tasks_mtx;
+  std::vector<std::thread> threads;
   httplib::SSLClient cli{"api.telegram.org"};
   std::string token;
   long long offset=0;
@@ -80,6 +88,20 @@ class Bot{
     std::cout<<res->body<<std::endl;
     Object obj=ParseJson(res->body);
     return obj;
+  }
+  void addTask(std::function<void()> func){
+    std::unique_lock<std::mutex> lok(tasks_mtx);
+    tasks.push(func);
+    tasks_cv.notify_one();
+  }
+  void updateWorkers(){
+    std::function<void()> f;
+    std::unique_lock<std::mutex> lok(tasks_mtx);
+    if (tasks.empty())
+      return;
+    f=tasks.front();
+    tasks.pop();
+    f();
   }
   void Update(){
     static bool wasUnupdated=false;
@@ -168,7 +190,7 @@ class Bot{
               "Telegram error: " + res->body
           );
   }
-  void sendMessage(long long chat_id, const std::string& text, const InlineKeyboard& keyboard){
+  void _sendMessage(long long chat_id, const std::string& text, const InlineKeyboard& keyboard){
     Object kb;
     kb["inline_keyboard"]=Val(Type::Array,Array());
     Array arr=kb["inline_keyboard"].get<Array>();
@@ -188,7 +210,7 @@ class Bot{
     std::cout<<"JS\n"<<JsonToString(kb)<<std::endl;
     std::cout<<"Inline kb\n"<<res->body<<std::endl;
   }
-  void sendVideo(long long chat_id,const std::string& videoPath, const std::string& format){
+  void _sendVideo(long long chat_id,const std::string& videoPath, const std::string& format){
     std::ifstream file(videoPath, std::ios::binary);
     if (!file.is_open()) throw std::runtime_error("Failed at opening file");
     std::string content=std::string(std::istreambuf_iterator<char>(file),
@@ -200,7 +222,7 @@ class Bot{
     auto res=cli.Post("/bot"+token+"/sendVideo", items);
     if (!res) {
       throw std::runtime_error(
-          "Failed at sending photo: " +
+          "Failed at sending video: " +
           httplib::to_string(res.error())
       );
     }
@@ -211,7 +233,7 @@ class Bot{
       );
     }
   }
-  void sendPhoto(long long chat_id,const std::string& photoPath, const std::string& format){
+  void _sendPhoto(long long chat_id,const std::string& photoPath, const std::string& format){
     std::ifstream file(photoPath, std::ios::binary);
     if (!file.is_open()) throw std::runtime_error("Failed at opening file");
     std::string content=std::string(std::istreambuf_iterator<char>(file),
@@ -234,7 +256,7 @@ class Bot{
       );
     }
   }
-  void sendAudio(long long chat_id,const std::string& audioPath, const std::string& format){
+  void _sendAudio(long long chat_id,const std::string& audioPath, const std::string& format){
     std::ifstream file(audioPath, std::ios::binary);
     if (!file.is_open()) throw std::runtime_error("Failed at opening file");
     std::string content=std::string(std::istreambuf_iterator<char>(file),
@@ -258,6 +280,21 @@ class Bot{
       );
     }
   }
+  void sendPhoto(long long chat_id,const std::string& photoPath, const std::string& format){
+    addTask([this,chat_id,photoPath,format](){
+      _sendPhoto(chat_id,photoPath,format);
+    });
+  }
+  void sendVideo(long long chat_id,const std::string& videoPath, const std::string& format){
+    addTask([this,chat_id,videoPath,format](){
+      _sendVideo(chat_id,videoPath,format);
+    });
+  }
+  void sendAudio(long long chat_id,const std::string& audioPath, const std::string& format){
+    addTask([this,chat_id,audioPath,format](){
+      _sendAudio(chat_id,audioPath,format);
+    });
+  }
   void addHandler(const std::string& text,std::function<void(long long)> func){
     handlers.insert({text,func});
   }
@@ -265,7 +302,9 @@ class Bot{
     CallbackHandlers.insert({data,func});
   }
   void infinite_poll(){
-    while (true)
+    while (true){
       Update();
+      updateWorkers();
+    }
   }
 };
