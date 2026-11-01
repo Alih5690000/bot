@@ -235,6 +235,9 @@ std::string Unexecline(Val var){
       res+=Unexecline(i);
       res+=",\n";
     }
+    res.pop_back();
+    res.pop_back();
+    res+="\n";
     res+="]";
     return res;
   }

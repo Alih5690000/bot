@@ -93,7 +93,6 @@ class Bot{
     }
     if (!offset){
       offset=arr[arr.size()-1].get<Object>()["update_id"].get<long long>()+1;
-      return;
     }
     offset=arr[arr.size()-1].get<Object>()["update_id"].get<long long>()+1;
     wasUnupdated=false;
@@ -104,15 +103,16 @@ class Bot{
       for (auto& [key,val]:o){
         std::cout<<key<<" "<<Unexecline(val)<<std::endl;
       }
-      if (o.find("message")!=o.end() && chains.find(o["message"].get<Object>()["chat"].get<Object>()["id"].get<long           long>())!=chains.end()){
+      if (o.find("message")!=o.end() && chains.find(o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>())!=chains.end()){
         std::cout<<"Found chain"<<std::endl;
-        bool res=chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>()][0]                        (o["message"].get<Object>()["text"].get<std::string>());
+        bool res=chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>()][0](o["message"].get<Object>()["text"].get<std::string>());
         if (res){
-          if (!chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>                                                    ()].empty())
-          chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>                                                    ()].erase(chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>()].begin());
-          if (chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>                                                    ()].empty())
+          if (!chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>()].empty())
+          chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>()].erase(chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>()].begin());
+          if (chains[o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>()].empty()){
+            std::cout<<"Chain finished"<<std::endl;
             chains.erase(o["message"].get<Object>()["chat"].get<Object>()["id"].get<long long>());
-          std::cout<<"Chain finished"<<std::endl;
+          }
         }
         continue;
       }
